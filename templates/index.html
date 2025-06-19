@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+    <a href="/vytvorit" class="btn btn-primary">Vytvořit nový turnaj</a>
+    <br>
+    <br>
+    <br>
+    <h2>Všechny turnaje</h2>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Název</th>
+            <th>Sport</th>
+            <th>Datum</th>
+            <th>Vytvořil</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for t in turnaje %}
+        <tr>
+            <td>{{ t[1] }}</td>
+            <td>{{ t[2] }}</td>
+            <td>{{ t[3] }}</td>
+            <td>{{ t[4] }}</td>
+            <td><a class="btn btn-sm btn-outline-primary" href="/turnaj/{{ t[0] }}">Zobrazit</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if session.uzivatel_id %}
+    <a href="/vytvorit" class="btn btn-success mt-3">+ Vytvořit nový turnaj</a>
+{% endif %}
+{% endblock %}

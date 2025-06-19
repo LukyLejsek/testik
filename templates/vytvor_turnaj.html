@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+    <form method="post">
+    <div class="mb-3">
+        <label for="nazev" class="form-label">Název turnaje</label>
+        <input type="text" class="form-control" id="nazev" name="nazev" required>
+    </div>
+    <div class="mb-3">
+        <label for="sport" class="form-label">Sport</label>
+        <select class="form-select" id="sport" name="sport" required>
+            <option value="fotbal">Fotbal</option>
+            <option value="florbal">Florbal</option>
+            <option value="hokej">Hokej</option>
+            <option value="volejbal">Volejbal</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="datum" class="form-label">Datum</label>
+        <input type="date" class="form-control" id="datum" name="datum" required>
+    </div>
+    <div class="mb-3">
+        <label for="pocet_tymu" class="form-label">Počet týmů</label>
+        <input type="number" class="form-control" id="pocet_tymu" name="pocet_tymu" required>
+    </div>
+    <div class="mb-3">
+        <label for="popis" class="form-label">Popis</label>
+        <textarea class="form-control" id="popis" name="popis" rows="3"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Vytvořit</button>
+</form>
+
+{% endblock %}

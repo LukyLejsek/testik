@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <title>Turnajovník</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+</head>
+<body class="p-4">
+    <div class="container">
+        <header class="d-flex justify-content-between align-items-center mb-4">
+            <h1><a href="/" class="text-decoration-none text-dark">Turnajovník</a></h1>
+            <div>
+                {% if session.uzivatel_id %}
+                    <span class="me-3">Přihlášen jako <strong>{{ session.jmeno }}</strong></span>
+                    <a href="/odhlasit" class="btn btn-outline-danger btn-sm">Odhlásit se</a>
+                {% else %}
+                    <a href="/prihlaseni" class="btn btn-outline-primary btn-sm me-2">Přihlášení</a>
+                    <a href="/registrace" class="btn btn-primary btn-sm">Registrace</a>
+                {% endif %}
+            </div>
+        </header>
+
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

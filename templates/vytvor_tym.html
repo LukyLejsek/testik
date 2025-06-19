@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Vytvořit tým</h2>
+<form method="post">
+    <div class="mb-3">
+        <label>Název týmu</label>
+        <input class="form-control" type="text" name="nazev" required>
+    </div>
+    <div class="mb-3">
+        <label>Popis (nepovinný)</label>
+        <textarea class="form-control" name="popis"></textarea>
+    </div>
+    <button class="btn btn-success">Vytvořit tým</button>
+</form>
+{% endblock %}

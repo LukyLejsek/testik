@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ tym.nazev }}</h2>
+<p><strong>Kapitán:</strong> {{ tym.kapitan }}</p>
+<p><strong>Popis:</strong> {{ tym.popis or "žádný" }}</p>
+
+<h4>Členové týmu</h4>
+<ul>
+    {% for clen in clenove %}
+        <li>{{ clen.jmeno }} ({{ clen.email }})</li>
+    {% endfor %}
+</ul>
+
+{% if session.uzivatel_id == tym.kapitan_id %}
+<h4>Přidat člena</h4>
+<form method="post" action="/tym/{{ tym.id }}/pridat-clena" class="mb-3">
+    <div class="input-group">
+        <input type="email" name="email" placeholder="E-mail člena" class="form-control" required>
+        <button class="btn btn-primary" type="submit">Přidat</button>
+    </div>
+</form>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger mt-3">{{ error }}</div>
+{% elif success %}
+<div class="alert alert-success mt-3">{{ success }}</div>
+{% endif %}
+
+{% endblock %}

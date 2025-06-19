@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+    <h2>{{ nazev }}</h2>
+<p><strong>Sport:</strong> {{ sport }}</p>
+<p><strong>Datum:</strong> {{ datum }}</p>
+<p><strong>Počet týmů:</strong> {{ pocet_tymu }}</p>
+<p><strong>Popis:</strong> {{ popis }}</p>
+<p><strong>ID turnaje:</strong> {{ id }}</p>
+
+
+
+
+<h3>Zápasy</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Tým 1</th>
+            <th>Skóre</th>
+            <th>Tým 2</th>
+            <th>Akce</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for z in zapasy %}
+        <tr>
+            <form method="post" action="/zadat-vysledek">
+                <input type="hidden" name="zapas_id" value="{{ z[0] }}">
+                <td>{{ z[1] }}</td>
+                <td>
+                    <input type="number" name="score1" value="{{ z[3] or '' }}" class="form-control d-inline" style="width: 60px;">
+                    :
+                    <input type="number" name="score2" value="{{ z[4] or '' }}" class="form-control d-inline" style="width: 60px;">
+                </td>
+                <td>{{ z[2] }}</td>
+                <td>
+                    <button type="submit" class="btn btn-sm btn-primary">Uložit</button>
+                </td>
+            </form>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+{% endblock %}
