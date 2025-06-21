@@ -1,74 +1,90 @@
 from flask import Flask, render_template, request, redirect, session, url_for
-app = Flask(__name__)
-app.secret_key = "hodne_tajny_klic"  # změň si na něco unikátního
-import sqlite3
+import os
+import psycopg2
+from urllib.parse import urlparse
 import uuid
 
-# Vytvoř databázi, pokud neexistuje
+app = Flask(__name__)
+app.secret_key = "hodne_tajny_klic"  # změň si na něco unikátního
+
+# Připojení k databázi PostgreSQL
+DATABASE_URL = os.environ.get("DATABASE_URL")
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+url = urlparse(DATABASE_URL)
+
+conn_params = {
+    "dbname": url.path[1:],
+    "user": url.username,
+    "password": url.password,
+    "host": url.hostname,
+    "port": url.port,
+}
+
+def get_db_connection():
+    return psycopg2.connect(**conn_params)
+
+# Inicializace databáze
+
 def init_db():
-    with sqlite3.connect("database.db") as conn:
+    with get_db_connection() as conn:
         c = conn.cursor()
-        c.execute("""CREATE TABLE IF NOT EXISTS zapasy (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            turnaj_id TEXT,
-            tym1 TEXT,
-            tym2 TEXT,
-            score1 INTEGER,
-            score2 INTEGER,
-            FOREIGN KEY(turnaj_id) REFERENCES turnaje(id)
-        )""")
-        c.execute("""CREATE TABLE IF NOT EXISTS uzivatele (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            jmeno TEXT,
-            email TEXT UNIQUE,
-            heslo TEXT
-        )""")
-
-        c.execute("""CREATE TABLE IF NOT EXISTS turnaje (
-            id TEXT PRIMARY KEY,
-            nazev TEXT NOT NULL,
-            sport TEXT,
-            datum TEXT,
-            pocet_tymu INTEGER,
-            popis TEXT,
-            autor_id INTEGER,
-            FOREIGN KEY(autor_id) REFERENCES uzivatele(id)
-        )""")
-        
-        c.execute("""CREATE TABLE IF NOT EXISTS tymy (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nazev TEXT NOT NULL,
-            popis TEXT,
-            kapitan_id INTEGER,
-            FOREIGN KEY(kapitan_id) REFERENCES uzivatele(id)
-        )""")
-
-        # Tabulka členů týmu
-        c.execute("""CREATE TABLE IF NOT EXISTS tym_clenove (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tym_id INTEGER,
-            uzivatel_id INTEGER,
-            FOREIGN KEY(tym_id) REFERENCES tymy(id),
-            FOREIGN KEY(uzivatel_id) REFERENCES uzivatele(id)
-        )""")
-        
         c.execute("""
-            SELECT t.id, t.nazev, t.sport, t.datum, u.jmeno
-            FROM turnaje t
-            LEFT JOIN uzivatele u ON t.autor_id = u.id
-            ORDER BY t.datum ASC
+            CREATE TABLE IF NOT EXISTS uzivatele (
+                id SERIAL PRIMARY KEY,
+                jmeno TEXT,
+                email TEXT UNIQUE,
+                heslo TEXT
+            )
         """)
-        
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS turnaje (
+                id TEXT PRIMARY KEY,
+                nazev TEXT NOT NULL,
+                sport TEXT,
+                datum TEXT,
+                pocet_tymu INTEGER,
+                popis TEXT,
+                autor_id INTEGER REFERENCES uzivatele(id)
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS zapasy (
+                id SERIAL PRIMARY KEY,
+                turnaj_id TEXT REFERENCES turnaje(id),
+                tym1 TEXT,
+                tym2 TEXT,
+                score1 INTEGER,
+                score2 INTEGER
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS tymy (
+                id SERIAL PRIMARY KEY,
+                nazev TEXT NOT NULL,
+                popis TEXT,
+                kapitan_id INTEGER REFERENCES uzivatele(id)
+            )
+        """)
+
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS tym_clenove (
+                id SERIAL PRIMARY KEY,
+                tym_id INTEGER REFERENCES tymy(id),
+                uzivatel_id INTEGER REFERENCES uzivatele(id)
+            )
+        """)
+
         c.execute("""
             CREATE TABLE IF NOT EXISTS prihlasene_tymy (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            turnaj_id TEXT,
-            tym_id INTEGER,
-            FOREIGN KEY(turnaj_id) REFERENCES turnaje(id),
-            FOREIGN KEY(tym_id) REFERENCES tymy(id)
-        )""")
-
-
+                id SERIAL PRIMARY KEY,
+                turnaj_id TEXT REFERENCES turnaje(id),
+                tym_id INTEGER REFERENCES tymy(id)
+            )
+        """)
         conn.commit()
 
 
@@ -88,12 +104,12 @@ def vytvorit():
         turnaj_id = str(uuid.uuid4())[:8]
         autor_id = session["uzivatel_id"]
 
-        with sqlite3.connect("database.db") as conn:
+        with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
                 INSERT INTO turnaje (id, nazev, sport, datum, pocet_tymu, popis, autor_id)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id))
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id))
             conn.commit()
 
             
@@ -107,7 +123,7 @@ def vytvorit():
                 zapasy.append((turnaj_id, tymy[i], tymy[j], None, None))  # None pro skóre
 
     # Ulož zápasy do DB
-        with sqlite3.connect("database.db") as conn:
+        with get_db_connection() as conn:
             c = conn.cursor()
             c.executemany("""
                 INSERT INTO zapasy (turnaj_id, tym1, tym2, score1, score2)
@@ -123,8 +139,7 @@ def vytvorit():
 
 @app.route("/turnaj/<turnaj_id>")   
 def zobraz_turnaj(turnaj_id):
-    with sqlite3.connect("database.db") as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection() as conn:
         c = conn.cursor()
         # Načti zápasy
         c.execute("""
@@ -188,16 +203,16 @@ def zadat_vysledek():
     score1 = request.form["score1"]
     score2 = request.form["score2"]
 
-    with sqlite3.connect("database.db") as conn:
+    with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("""
             UPDATE zapasy
             SET score1 = ?, score2 = ?
             WHERE id = ?
-        """, (score1, score2, zapas_id))
+            """, (score1, score2, zapas_id))
         conn.commit()
 
-    # najdeme turnaj_id kvůli přesměrování zpět
+        # najdeme turnaj_id kvůli přesměrování zpět
         c.execute("SELECT turnaj_id FROM zapasy WHERE id = ?", (zapas_id,))
         turnaj_id = c.fetchone()[0]
 
@@ -213,7 +228,7 @@ def registrace():
         email = request.form["email"]
         heslo = request.form["heslo"]
 
-        with sqlite3.connect("database.db") as conn:
+        with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (?, ?, ?)", (jmeno, email, heslo))
             conn.commit()
@@ -232,7 +247,7 @@ def prihlaseni():
         email = request.form["email"]
         heslo = request.form["heslo"]
 
-        with sqlite3.connect("database.db") as conn:
+        with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("SELECT id, jmeno FROM uzivatele WHERE email = ? AND heslo = ?", (email, heslo))
             user = c.fetchone()
@@ -260,7 +275,7 @@ def odhlasit():
 
 @app.route("/")
 def index():
-    with sqlite3.connect("database.db") as conn:
+    with get_db_connection() as conn:
         c = conn.cursor()
         c.execute("""
             SELECT t.id, t.nazev, t.sport, t.datum, u.jmeno
@@ -284,7 +299,7 @@ def vytvorit_tym():
         popis = request.form["popis"]
         kapitan_id = session["uzivatel_id"]
 
-        with sqlite3.connect("database.db") as conn:
+        with get_db_connection() as conn:
             c = conn.cursor()
             # vytvoření týmu
             c.execute("INSERT INTO tymy (nazev, popis, kapitan_id) VALUES (?, ?, ?)", (nazev, popis, kapitan_id))
@@ -302,8 +317,7 @@ def vytvorit_tym():
 
 @app.route("/tym/<int:tym_id>")
 def detail_tymu(tym_id):
-    with sqlite3.connect("database.db") as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection() as conn:
         c = conn.cursor()
 
         # Detail týmu
@@ -334,8 +348,7 @@ def pridat_clena(tym_id):
 
     email = request.form["email"]
 
-    with sqlite3.connect("database.db") as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection() as conn:
         c = conn.cursor()
 
         # Získání týmu
@@ -394,15 +407,15 @@ def prihlasit_tym(turnaj_id):
 
     tym_id = request.form.get("tym_id")
 
-    with sqlite3.connect("database.db") as conn:
-        conn.row_factory = sqlite3.Row
+    with get_db_connection() as conn:
         c = conn.cursor()
         # Zkontroluj, jestli je uživatel kapitán
         c.execute("SELECT * FROM tymy WHERE id = ? AND kapitan_id = ?", (tym_id, session["uzivatel_id"]))
         tym = c.fetchone()
         if not tym:
             return "Nemáš oprávnění přihlásit tento tým.", 403
-
+            # Převod na integer pro psycopg2 (PostgreSQL používá %s místo ?)
+            tym_id = int(tym_id)
         # Zkontroluj, jestli už tým není přihlášen
         c.execute("SELECT 1 FROM prihlasene_tymy WHERE turnaj_id = ? AND tym_id = ?", (turnaj_id, tym_id))
         if c.fetchone():
