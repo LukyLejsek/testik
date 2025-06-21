@@ -127,7 +127,7 @@ def vytvorit():
             c = conn.cursor()
             c.executemany("""
                 INSERT INTO zapasy (turnaj_id, tym1, tym2, score1, score2)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
             """, zapasy)
             conn.commit()
 
@@ -145,7 +145,7 @@ def zobraz_turnaj(turnaj_id):
         c.execute("""
             SELECT id, tym1, tym2, score1, score2 
             FROM zapasy 
-            WHERE turnaj_id = ?
+            WHERE turnaj_id = %s
         """, (turnaj_id,))
         zapasy = c.fetchall()
 
@@ -153,7 +153,7 @@ def zobraz_turnaj(turnaj_id):
         c.execute("""
             SELECT id, nazev, sport, datum, pocet_tymu, popis 
             FROM turnaje 
-            WHERE id = ?
+            WHERE id = %s
         """, (turnaj_id,))
         turnaj = c.fetchone()
 
@@ -165,7 +165,7 @@ def zobraz_turnaj(turnaj_id):
             SELECT tm.id, tm.nazev
             FROM prihlasene_tymy pt
             JOIN tymy tm ON pt.tym_id = tm.id
-            WHERE pt.turnaj_id = ?
+            WHERE pt.turnaj_id = %s
         """, (turnaj_id,))
         prihlasene_tymy = c.fetchall()
 
@@ -175,7 +175,7 @@ def zobraz_turnaj(turnaj_id):
             c.execute("""
                 SELECT id, nazev
                 FROM tymy
-                WHERE kapitan_id = ?
+                WHERE kapitan_id = %s
             """, (session["uzivatel_id"],))
             moje_tymy = c.fetchall()
 
@@ -207,13 +207,13 @@ def zadat_vysledek():
         c = conn.cursor()
         c.execute("""
             UPDATE zapasy
-            SET score1 = ?, score2 = ?
-            WHERE id = ?
+            SET score1 = %s, score2 = %s
+            WHERE id = %s
             """, (score1, score2, zapas_id))
         conn.commit()
 
         # najdeme turnaj_id kvůli přesměrování zpět
-        c.execute("SELECT turnaj_id FROM zapasy WHERE id = ?", (zapas_id,))
+        c.execute("SELECT turnaj_id FROM zapasy WHERE id = %s", (zapas_id,))
         turnaj_id = c.fetchone()[0]
 
     return redirect(f"/turnaj/{turnaj_id}")
@@ -230,7 +230,7 @@ def registrace():
 
         with get_db_connection() as conn:
             c = conn.cursor()
-            c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (?, ?, ?)", (jmeno, email, heslo))
+            c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (%s, %s, %s)", (jmeno, email, heslo))
             conn.commit()
 
         return redirect("/prihlaseni")
@@ -249,7 +249,7 @@ def prihlaseni():
 
         with get_db_connection() as conn:
             c = conn.cursor()
-            c.execute("SELECT id, jmeno FROM uzivatele WHERE email = ? AND heslo = ?", (email, heslo))
+            c.execute("SELECT id, jmeno FROM uzivatele WHERE email = %s AND heslo = %s", (email, heslo))
             user = c.fetchone()
 
         if user:
@@ -302,11 +302,11 @@ def vytvorit_tym():
         with get_db_connection() as conn:
             c = conn.cursor()
             # vytvoření týmu
-            c.execute("INSERT INTO tymy (nazev, popis, kapitan_id) VALUES (?, ?, ?)", (nazev, popis, kapitan_id))
+            c.execute("INSERT INTO tymy (nazev, popis, kapitan_id) VALUES (%s, %s, %s)", (nazev, popis, kapitan_id))
             tym_id = c.lastrowid
 
             # přidání kapitána jako člena
-            c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (?, ?)", (tym_id, kapitan_id))
+            c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)", (tym_id, kapitan_id))
             conn.commit()
 
         return redirect(f"/tym/{tym_id}")
@@ -325,7 +325,7 @@ def detail_tymu(tym_id):
             SELECT t.id, t.nazev, t.popis, t.kapitan_id, u.jmeno AS kapitan
             FROM tymy t
             JOIN uzivatele u ON t.kapitan_id = u.id
-            WHERE t.id = ?
+            WHERE t.id = %s
         """, (tym_id,))
         tym = c.fetchone()
 
@@ -334,7 +334,7 @@ def detail_tymu(tym_id):
             SELECT u.jmeno, u.email
             FROM tym_clenove tc
             JOIN uzivatele u ON tc.uzivatel_id = u.id
-            WHERE tc.tym_id = ?
+            WHERE tc.tym_id = %s
         """, (tym_id,))
         clenove = c.fetchall()
 
@@ -356,7 +356,7 @@ def pridat_clena(tym_id):
             SELECT t.id, t.nazev, t.popis, t.kapitan_id, u.jmeno AS kapitan
             FROM tymy t
             JOIN uzivatele u ON t.kapitan_id = u.id
-            WHERE t.id = ?
+            WHERE t.id = %s
         """, (tym_id,))
         tym = c.fetchone()
 
@@ -364,7 +364,7 @@ def pridat_clena(tym_id):
             return "Nemáš oprávnění upravovat tento tým.", 403
 
         # Najdi uživatele
-        c.execute("SELECT id FROM uzivatele WHERE email = ?", (email,))
+        c.execute("SELECT id FROM uzivatele WHERE email = %s", (email,))
         user = c.fetchone()
         if not user:
             # Načíst aktuální členy
@@ -372,7 +372,7 @@ def pridat_clena(tym_id):
                 SELECT u.jmeno, u.email
                 FROM tym_clenove tc
                 JOIN uzivatele u ON tc.uzivatel_id = u.id
-                WHERE tc.tym_id = ?
+                WHERE tc.tym_id = %s
             """, (tym_id,))
             clenove = c.fetchall()
             return render_template("detail_tymu.html", tym=tym, clenove=clenove,
@@ -381,20 +381,20 @@ def pridat_clena(tym_id):
         user_id = user["id"]
 
         # Kontrola, jestli už není člen
-        c.execute("SELECT 1 FROM tym_clenove WHERE tym_id = ? AND uzivatel_id = ?", (tym_id, user_id))
+        c.execute("SELECT 1 FROM tym_clenove WHERE tym_id = %s AND uzivatel_id = %s", (tym_id, user_id))
         if c.fetchone():
             c.execute("""
                 SELECT u.jmeno, u.email
                 FROM tym_clenove tc
                 JOIN uzivatele u ON tc.uzivatel_id = u.id
-                WHERE tc.tym_id = ?
+                WHERE tc.tym_id = %s
             """, (tym_id,))
             clenove = c.fetchall()
             return render_template("detail_tymu.html", tym=tym, clenove=clenove,
                                    error="Tento uživatel už je v týmu.")
 
         # Přidej člena
-        c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (?, ?)", (tym_id, user_id))
+        c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)", (tym_id, user_id))
         conn.commit()
 
     return redirect(f"/tym/{tym_id}")
@@ -410,19 +410,19 @@ def prihlasit_tym(turnaj_id):
     with get_db_connection() as conn:
         c = conn.cursor()
         # Zkontroluj, jestli je uživatel kapitán
-        c.execute("SELECT * FROM tymy WHERE id = ? AND kapitan_id = ?", (tym_id, session["uzivatel_id"]))
+        c.execute("SELECT * FROM tymy WHERE id = %s AND kapitan_id = %s", (tym_id, session["uzivatel_id"]))
         tym = c.fetchone()
         if not tym:
             return "Nemáš oprávnění přihlásit tento tým.", 403
             # Převod na integer pro psycopg2 (PostgreSQL používá %s místo ?)
             tym_id = int(tym_id)
         # Zkontroluj, jestli už tým není přihlášen
-        c.execute("SELECT 1 FROM prihlasene_tymy WHERE turnaj_id = ? AND tym_id = ?", (turnaj_id, tym_id))
+        c.execute("SELECT 1 FROM prihlasene_tymy WHERE turnaj_id = %s AND tym_id = %s", (turnaj_id, tym_id))
         if c.fetchone():
             return "Tým už je přihlášen.", 400
 
         # Zapiš přihlášení
-        c.execute("INSERT INTO prihlasene_tymy (turnaj_id, tym_id) VALUES (?, ?)", (turnaj_id, tym_id))
+        c.execute("INSERT INTO prihlasene_tymy (turnaj_id, tym_id) VALUES (%s, %s)", (turnaj_id, tym_id))
         conn.commit()
 
     return redirect(f"/turnaj/{turnaj_id}")
