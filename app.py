@@ -431,6 +431,21 @@ def prihlasit_tym(turnaj_id):
 
 
 
+
+
+
+
+
+
+
+
+@app.route("/init-db")
+def init_db_route():
+    init_db()
+    return "Databáze byla vytvořena."
+
+
+
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)
