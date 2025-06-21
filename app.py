@@ -58,6 +58,16 @@ def init_db():
             LEFT JOIN uzivatele u ON t.autor_id = u.id
             ORDER BY t.datum ASC
         """)
+        
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS prihlasene_tymy (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            turnaj_id TEXT,
+            tym_id INTEGER,
+            FOREIGN KEY(turnaj_id) REFERENCES turnaje(id),
+            FOREIGN KEY(tym_id) REFERENCES tymy(id)
+        )""")
+
 
         conn.commit()
 
@@ -111,23 +121,62 @@ def vytvorit():
 
 
 
-@app.route("/turnaj/<turnaj_id>")
+@app.route("/turnaj/<turnaj_id>")   
 def zobraz_turnaj(turnaj_id):
     with sqlite3.connect("database.db") as conn:
+        conn.row_factory = sqlite3.Row
         c = conn.cursor()
-            # Načti zápasy
-        c.execute("SELECT id, tym1, tym2, score1, score2 FROM zapasy WHERE turnaj_id = ?", (turnaj_id,))
+        # Načti zápasy
+        c.execute("""
+            SELECT id, tym1, tym2, score1, score2 
+            FROM zapasy 
+            WHERE turnaj_id = ?
+        """, (turnaj_id,))
         zapasy = c.fetchall()
 
         # Načti informace o turnaji
-        c.execute("SELECT nazev, sport, datum, pocet_tymu, popis FROM turnaje WHERE id = ?", (turnaj_id,))
-        data = c.fetchone()
+        c.execute("""
+            SELECT id, nazev, sport, datum, pocet_tymu, popis 
+            FROM turnaje 
+            WHERE id = ?
+        """, (turnaj_id,))
+        turnaj = c.fetchone()
 
-    if data:
-        return render_template("detail_turnaje.html", id=turnaj_id, nazev=data[0], sport=data[1],
-                               datum=data[2], pocet_tymu=data[3], popis=data[4], zapasy=zapasy)
-    else:
-        return "Turnaj nenalezen", 404
+        if not turnaj:
+            return "Turnaj nenalezen", 404
+
+        # Načti přihlášené týmy
+        c.execute("""
+            SELECT tm.id, tm.nazev
+            FROM prihlasene_tymy pt
+            JOIN tymy tm ON pt.tym_id = tm.id
+            WHERE pt.turnaj_id = ?
+        """, (turnaj_id,))
+        prihlasene_tymy = c.fetchall()
+
+        # Pokud je uživatel přihlášený, načti jeho týmy (kapitánské)
+        moje_tymy = []
+        if "uzivatel_id" in session:
+            c.execute("""
+                SELECT id, nazev
+                FROM tymy
+                WHERE kapitan_id = ?
+            """, (session["uzivatel_id"],))
+            moje_tymy = c.fetchall()
+
+    return render_template(
+        "detail_turnaje.html",
+        turnaj=turnaj,
+        nazev=turnaj["nazev"],
+        sport=turnaj["sport"],
+        datum=turnaj["datum"],
+        pocet_tymu=turnaj["pocet_tymu"],
+        popis=turnaj["popis"],
+        zapasy=zapasy,
+        prihlasene_tymy=prihlasene_tymy,
+        moje_tymy=moje_tymy,
+    )
+
 
 
 
@@ -338,6 +387,32 @@ def pridat_clena(tym_id):
     return redirect(f"/tym/{tym_id}")
 
 
+@app.route("/turnaj/<turnaj_id>/prihlasit-tym", methods=["POST"])
+def prihlasit_tym(turnaj_id):
+    if "uzivatel_id" not in session:
+        return redirect("/prihlaseni")
+
+    tym_id = request.form.get("tym_id")
+
+    with sqlite3.connect("database.db") as conn:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        # Zkontroluj, jestli je uživatel kapitán
+        c.execute("SELECT * FROM tymy WHERE id = ? AND kapitan_id = ?", (tym_id, session["uzivatel_id"]))
+        tym = c.fetchone()
+        if not tym:
+            return "Nemáš oprávnění přihlásit tento tým.", 403
+
+        # Zkontroluj, jestli už tým není přihlášen
+        c.execute("SELECT 1 FROM prihlasene_tymy WHERE turnaj_id = ? AND tym_id = ?", (turnaj_id, tym_id))
+        if c.fetchone():
+            return "Tým už je přihlášen.", 400
+
+        # Zapiš přihlášení
+        c.execute("INSERT INTO prihlasene_tymy (turnaj_id, tym_id) VALUES (?, ?)", (turnaj_id, tym_id))
+        conn.commit()
+
+    return redirect(f"/turnaj/{turnaj_id}")
 
 
 

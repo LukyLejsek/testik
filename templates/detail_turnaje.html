@@ -41,5 +41,25 @@
     </tbody>
 </table>
 
+<h3>Přihlášené týmy</h3>
+<ul>
+    {% for tym in prihlasene_tymy %}
+        <li>{{ tym.nazev }}</li>
+    {% endfor %}
+</ul>
+
+{% if moje_tymy %}
+<form method="POST" action="/turnaj/{{ turnaj.id }}/prihlasit-tym">
+    <label for="tym_id">Přihlásit tým:</label>
+    <select name="tym_id">
+        {% for tym in moje_tymy %}
+            <option value="{{ tym.id }}">{{ tym.nazev }}</option>
+        {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-success">Přihlásit</button>
+</form>
+{% endif %}
+
+
 
 {% endblock %}
