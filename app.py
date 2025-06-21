@@ -3,6 +3,7 @@ import os
 import psycopg2
 from urllib.parse import urlparse
 import uuid
+import psycopg2.extras
 
 app = Flask(__name__)
 app.secret_key = "hodne_tajny_klic"  # změň si na něco unikátního
@@ -22,7 +23,21 @@ conn_params = {
 }
 
 def get_db_connection():
-    return psycopg2.connect(**conn_params)
+    result = urlparse(os.environ.get("DATABASE_URL"))
+    username = result.username
+    password = result.password
+    database = result.path[1:]
+    hostname = result.hostname
+    port = result.port
+
+    return psycopg2.connect(
+        dbname=database,
+        user=username,
+        password=password,
+        host=hostname,
+        port=port,
+        cursor_factory=psycopg2.extras.DictCursor  # <-- tohle přidáš
+    )
 
 # Inicializace databáze
 
