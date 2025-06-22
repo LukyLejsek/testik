@@ -4,6 +4,7 @@ import psycopg2
 from urllib.parse import urlparse
 import uuid
 import psycopg2.extras
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
 app.secret_key = "hodne_tajny_klic"  # změň si na něco unikátního
@@ -242,10 +243,13 @@ def registrace():
         jmeno = request.form["jmeno"]
         email = request.form["email"]
         heslo = request.form["heslo"]
-
+        
+        # Hash hesla pro bezpečnost
+        heslo_hash = generate_password_hash(heslo)
+        
         with get_db_connection() as conn:
             c = conn.cursor()
-            c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (%s, %s, %s)", (jmeno, email, heslo))
+            c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (%s, %s, %s)", (jmeno, email, heslo_hash))
             conn.commit()
 
         return redirect("/prihlaseni")
@@ -261,10 +265,12 @@ def prihlaseni():
     if request.method == "POST":
         email = request.form["email"]
         heslo = request.form["heslo"]
+        # Hash hesla pro bezpečnost
+        heslo_hash = generate_password_hash(heslo)
 
         with get_db_connection() as conn:
             c = conn.cursor()
-            c.execute("SELECT id, jmeno FROM uzivatele WHERE email = %s AND heslo = %s", (email, heslo))
+            c.execute("SELECT id, jmeno FROM uzivatele WHERE email = %s AND heslo = %s", (email, heslo_hash))
             user = c.fetchone()
 
         if user:
