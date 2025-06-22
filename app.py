@@ -264,19 +264,21 @@ def registrace():
 def prihlaseni():
     if request.method == "POST":
         email = request.form["email"]
-        heslo = request.form["heslo"]
-        # Hash hesla pro bezpečnost
-        heslo_hash = generate_password_hash(heslo)
+        zadane_heslo = request.form["heslo"]
 
         with get_db_connection() as conn:
             c = conn.cursor()
-            c.execute("SELECT id, jmeno FROM uzivatele WHERE email = %s AND heslo = %s", (email, heslo_hash))
+            c.execute("SELECT id, jmeno, heslo FROM uzivatele WHERE email = %s", (email,))
             user = c.fetchone()
 
         if user:
-            session["uzivatel_id"] = user[0]
-            session["jmeno"] = user[1]
-            return redirect("/")
+            ulozene_heslo = user[2]  # heslo je na 3. pozici v SELECTu
+            if check_password_hash(ulozene_heslo, zadane_heslo):
+                session["uzivatel_id"] = user[0]
+                session["jmeno"] = user[1]
+                return redirect("/")
+            else:
+                return "Špatný e-mail nebo heslo"
         else:
             return "Špatný e-mail nebo heslo"
 
