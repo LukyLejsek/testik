@@ -127,6 +127,7 @@ def vytvorit():
         sport = request.form["sport"]
         datum = request.form["datum"]
         pocet_tymu = request.form["pocet_tymu"]
+        format = request.form["format"]
         popis = request.form["popis"]
         turnaj_id = str(uuid.uuid4())[:8]
         autor_id = session["uzivatel_id"]
@@ -134,9 +135,9 @@ def vytvorit():
         with get_db_connection() as conn:
             c = conn.cursor()
             c.execute("""
-                INSERT INTO turnaje (id, nazev, sport, datum, pocet_tymu, popis, autor_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id))
+                INSERT INTO turnaje (id, nazev, sport, datum, pocet_tymu, popis, autor_id, format)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id, format))
             conn.commit()
 
             
