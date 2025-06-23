@@ -444,19 +444,31 @@ def prihlasit_tym(turnaj_id):
 
     with get_db_connection() as conn:
         c = conn.cursor()
-        # Zkontroluj, jestli je uživatel kapitán
-        c.execute("SELECT * FROM tymy WHERE id = %s AND kapitan_id = %s", (tym_id, session["uzivatel_id"]))
-        tym = c.fetchone()
-        if not tym:
+
+        # Získat max. počet týmů pro daný turnaj
+        c.execute("SELECT pocet_tymu FROM turnaje WHERE id = %s", (turnaj_id,))
+        vysledek = c.fetchone()
+        if not vysledek:
+            return "Turnaj neexistuje", 404
+        max_pocet = vysledek[0]
+
+        # Spočítat aktuálně přihlášené týmy
+        c.execute("SELECT COUNT(*) FROM prihlasene_tymy WHERE turnaj_id = %s", (turnaj_id,))
+        aktualni_pocet = c.fetchone()[0]
+
+        if aktualni_pocet >= max_pocet:
+            return "Turnaj je již plný.", 400
+
+        # Zkontroluj, jestli je tým už přihlášen
+        c.execute("SELECT 1 FROM tymy WHERE id = %s AND kapitan_id = %s", (tym_id, session["uzivatel_id"]))
+        if not c.fetchone():
             return "Nemáš oprávnění přihlásit tento tým.", 403
-            # Převod na integer pro psycopg2 (PostgreSQL používá %s místo ?)
-            tym_id = int(tym_id)
-        # Zkontroluj, jestli už tým není přihlášen
+
         c.execute("SELECT 1 FROM prihlasene_tymy WHERE turnaj_id = %s AND tym_id = %s", (turnaj_id, tym_id))
         if c.fetchone():
             return "Tým už je přihlášen.", 400
 
-        # Zapiš přihlášení
+        # Přihlásit tým
         c.execute("INSERT INTO prihlasene_tymy (turnaj_id, tym_id) VALUES (%s, %s)", (turnaj_id, tym_id))
         conn.commit()
 
