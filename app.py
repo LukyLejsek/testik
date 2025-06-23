@@ -50,7 +50,8 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 jmeno TEXT,
                 email TEXT UNIQUE,
-                heslo TEXT
+                heslo TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -62,7 +63,8 @@ def init_db():
                 datum TEXT,
                 pocet_tymu INTEGER,
                 popis TEXT,
-                autor_id INTEGER REFERENCES uzivatele(id)
+                autor_id INTEGER REFERENCES uzivatele(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -73,7 +75,8 @@ def init_db():
                 tym1 TEXT,
                 tym2 TEXT,
                 score1 INTEGER,
-                score2 INTEGER
+                score2 INTEGER,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -82,7 +85,8 @@ def init_db():
                 id SERIAL PRIMARY KEY,
                 nazev TEXT NOT NULL,
                 popis TEXT,
-                kapitan_id INTEGER REFERENCES uzivatele(id)
+                kapitan_id INTEGER REFERENCES uzivatele(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -90,7 +94,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS tym_clenove (
                 id SERIAL PRIMARY KEY,
                 tym_id INTEGER REFERENCES tymy(id),
-                uzivatel_id INTEGER REFERENCES uzivatele(id)
+                uzivatel_id INTEGER REFERENCES uzivatele(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
 
@@ -98,7 +103,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS prihlasene_tymy (
                 id SERIAL PRIMARY KEY,
                 turnaj_id TEXT REFERENCES turnaje(id),
-                tym_id INTEGER REFERENCES tymy(id)
+                tym_id INTEGER REFERENCES tymy(id),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         conn.commit()
@@ -324,13 +330,19 @@ def vytvorit_tym():
 
         with get_db_connection() as conn:
             c = conn.cursor()
-            # vytvoření týmu
-            c.execute("INSERT INTO tymy (nazev, popis, kapitan_id) VALUES (%s, %s, %s)", (nazev, popis, kapitan_id))
-            tym_id = c.lastrowid
+            # Vložení týmu + získání jeho ID
+            c.execute(
+                "INSERT INTO tymy (nazev, popis, kapitan_id) VALUES (%s, %s, %s) RETURNING id",
+            (nazev, popis, kapitan_id)
+            )
+            tym_id = c.fetchone()[0]
 
-            # přidání kapitána jako člena
-            c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)", (tym_id, kapitan_id))
-            conn.commit()
+            # Přidání kapitána jako člena
+            c.execute(
+                "INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)",
+            (tym_id, kapitan_id))
+
+        conn.commit()
 
         return redirect(f"/tym/{tym_id}")
 
