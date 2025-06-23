@@ -63,6 +63,7 @@ def init_db():
                 datum TEXT,
                 pocet_tymu INTEGER,
                 popis TEXT,
+                format TEXT,
                 autor_id INTEGER REFERENCES uzivatele(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
