@@ -63,7 +63,7 @@ def init_db():
                 datum TEXT,
                 pocet_tymu INTEGER,
                 popis TEXT,
-                format TEXT,
+                format TEXT, 
                 autor_id INTEGER REFERENCES uzivatele(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -107,6 +107,10 @@ def init_db():
                 tym_id INTEGER REFERENCES tymy(id),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
+        """)
+        
+        c.execute("""
+                  ALTER TABLE turnaje ADD COLUMN format TEXT;
         """)
         conn.commit()
 
