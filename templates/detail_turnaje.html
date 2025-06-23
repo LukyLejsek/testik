@@ -7,11 +7,12 @@
 <p><strong>Popis:</strong> {{ popis }}</p>
 <p><strong>ID turnaje:</strong> {{ id }}</p>
 
-{% if not turnaj.zapasy_vygenerovany and uzivatel_je_autor %}
-<form method="POST" action="/turnaj/{{ turnaj.id }}/vygenerovat-zapasy">
-    <button class="btn btn-primary">Vygenerovat zápasy</button>
+{% if not turnaj.zapasy_vygenerovany and session['uzivatel_id'] == turnaj.autor_id %}
+<form method="POST" action="/turnaj/{{ turnaj.id }}/vygeneruj-zapasy">
+    <button type="submit" class="btn btn-warning mt-3">Vygenerovat zápasy</button>
 </form>
 {% endif %}
+
 
 
 

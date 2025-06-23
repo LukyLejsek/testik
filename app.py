@@ -112,8 +112,40 @@ def init_db():
         c.execute("""
                   ALTER TABLE turnaje ADD COLUMN format TEXT;
         """)
+        
+        c.execute("""
+                  ALTER TABLE turnaje ADD COLUMN zapasy_vygenerovany BOOLEAN DEFAULT FALSE;
+
+        """)
         conn.commit()
 
+def vygeneruj_zapasy(turnaj_id):
+    with get_db_connection() as conn:
+        c = conn.cursor()
+        # Načti přihlášené týmy
+        c.execute("""
+            SELECT tm.nazev
+            FROM prihlasene_tymy pt
+            JOIN tymy tm ON pt.tym_id = tm.id
+            WHERE pt.turnaj_id = %s
+        """, (turnaj_id,))
+        tymy = [row[0] for row in c.fetchall()]
+
+        # Vygeneruj zápasy (round-robin)
+        zapasy = []
+        for i in range(len(tymy)):
+            for j in range(i + 1, len(tymy)):
+                zapasy.append((turnaj_id, tymy[i], tymy[j], None, None))
+
+        # Ulož zápasy
+        c.executemany("""
+            INSERT INTO zapasy (turnaj_id, tym1, tym2, score1, score2)
+            VALUES (%s, %s, %s, %s, %s)
+        """, zapasy)
+
+        # Nastav příznak "zápasy vygenerovány"
+        c.execute("UPDATE turnaje SET zapasy_vygenerovany = TRUE WHERE id = %s", (turnaj_id,))
+        conn.commit()
 
 
 @app.route("/vytvorit", methods=["GET", "POST"])
@@ -219,7 +251,7 @@ def zobraz_turnaj(turnaj_id):
         prihlasene_tymy=prihlasene_tymy,
         moje_tymy=moje_tymy,
     )
-
+    
 
 
 
@@ -477,6 +509,18 @@ def prihlasit_tym(turnaj_id):
         # Přihlásit tým
         c.execute("INSERT INTO prihlasene_tymy (turnaj_id, tym_id) VALUES (%s, %s)", (turnaj_id, tym_id))
         conn.commit()
+        
+        # Zjisti aktuální počet přihlášených týmů
+        c.execute("SELECT COUNT(*) FROM prihlasene_tymy WHERE turnaj_id = %s", (turnaj_id,))
+        pocet_prihlasenych = c.fetchone()[0]
+
+        # Zjisti max počet týmů
+        c.execute("SELECT pocet_tymu FROM turnaje WHERE id = %s", (turnaj_id,))
+        max_pocet = c.fetchone()[0]
+
+        if pocet_prihlasenych == max_pocet:
+            vygeneruj_zapasy(turnaj_id)
+
 
     return redirect(f"/turnaj/{turnaj_id}")
 
