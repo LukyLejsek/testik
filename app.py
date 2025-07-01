@@ -23,6 +23,17 @@ conn_params = {
     "port": url.port,
 }
 
+def main():
+    conn = psycopg2.connect('postgres://avnadmin:************************@pg-29b19cb-turnajovnik.i.aivencloud.com:11851/defaultdb?sslmode=require')
+
+    query_sql = 'SELECT VERSION()'
+
+    cur = conn.cursor()
+    cur.execute(query_sql)
+
+    version = cur.fetchone()[0]
+    print(version)
+
 def get_db_connection():
     result = urlparse(os.environ.get("DATABASE_URL"))
     username = result.username
