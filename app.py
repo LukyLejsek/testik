@@ -48,7 +48,8 @@ def get_db_connection():
         password=password,
         host=hostname,
         port=port,
-        cursor_factory=psycopg2.extras.DictCursor  # <-- tohle přidáš
+        cursor_factory=psycopg2.extras.DictCursor,
+        sslmode='require'
     )
 
 # Inicializace databáze
