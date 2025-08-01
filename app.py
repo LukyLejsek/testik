@@ -23,6 +23,16 @@ conn_params = {
     "port": url.port,
 }
 
+from psycopg2 import pool
+
+# Globální připojovací pool (min=1, max=5 připojení)
+db_pool = psycopg2.pool.SimpleConnectionPool(
+    1, 5,
+    **conn_params,
+    cursor_factory=psycopg2.extras.DictCursor,
+    sslmode='require'
+)
+
 def main():
     conn = psycopg2.connect('postgres://avnadmin:************************@pg-29b19cb-turnajovnik.i.aivencloud.com:11851/defaultdb?sslmode=require')
 
@@ -38,22 +48,8 @@ if __name__ == "__main__":
     main()
 
 def get_db_connection():
-    result = urlparse(os.environ.get("DATABASE_URL"))
-    username = result.username
-    password = result.password
-    database = result.path[1:]
-    hostname = result.hostname
-    port = result.port
 
-    return psycopg2.connect(
-        dbname=database,
-        user=username,
-        password=password,
-        host=hostname,
-        port=port,
-        cursor_factory=psycopg2.extras.DictCursor,
-        sslmode='require'
-    )
+    return db_pool.getconn()
 
 # Inicializace databáze
 
@@ -179,13 +175,16 @@ def vytvorit():
         turnaj_id = str(uuid.uuid4())[:8]
         autor_id = session["uzivatel_id"]
 
-        with get_db_connection() as conn:
+        conn = get_db_connection()
+        try:
             c = conn.cursor()
             c.execute("""
                 INSERT INTO turnaje (id, nazev, sport, datum, pocet_tymu, popis, autor_id, format)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id, format))
+            """, (turnaj_id, nazev, sport, datum, pocet_tymu, popis, autor_id, format))
             conn.commit()
+        finally:
+            db_pool.putconn(conn)
 
             
             # Vygeneruj týmy podle počtu
@@ -198,13 +197,16 @@ def vytvorit():
                 zapasy.append((turnaj_id, tymy[i], tymy[j], None, None))  # None pro skóre
 
     # Ulož zápasy do DB
-        with get_db_connection() as conn:
+        conn = get_db_connection()
+        try:
             c = conn.cursor()
             c.executemany("""
                 INSERT INTO zapasy (turnaj_id, tym1, tym2, score1, score2)
                 VALUES (%s, %s, %s, %s, %s)
             """, zapasy)
             conn.commit()
+        finally:
+            db_pool.putconn(conn)
 
         return redirect(f"/turnaj/{turnaj_id}")
 
@@ -214,7 +216,8 @@ def vytvorit():
 
 @app.route("/turnaj/<turnaj_id>")   
 def zobraz_turnaj(turnaj_id):
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
         # Načti zápasy
         c.execute("""
@@ -253,7 +256,8 @@ def zobraz_turnaj(turnaj_id):
                 WHERE kapitan_id = %s
             """, (session["uzivatel_id"],))
             moje_tymy = c.fetchall()
-
+    finally:
+            db_pool.putconn(conn)
     return render_template(
         "detail_turnaje.html",
         turnaj=turnaj,
@@ -278,7 +282,8 @@ def zadat_vysledek():
     score1 = request.form["score1"]
     score2 = request.form["score2"]
 
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
         c.execute("""
             UPDATE zapasy
@@ -290,6 +295,8 @@ def zadat_vysledek():
         # najdeme turnaj_id kvůli přesměrování zpět
         c.execute("SELECT turnaj_id FROM zapasy WHERE id = %s", (zapas_id,))
         turnaj_id = c.fetchone()[0]
+    finally:
+        db_pool.putconn(conn)
 
     return redirect(f"/turnaj/{turnaj_id}")
 
@@ -306,12 +313,19 @@ def registrace():
         # Hash hesla pro bezpečnost
         heslo_hash = generate_password_hash(heslo)
         
-        with get_db_connection() as conn:
+        conn = get_db_connection()
+        try:
             c = conn.cursor()
-            c.execute("INSERT INTO uzivatele (jmeno, email, heslo) VALUES (%s, %s, %s)", (jmeno, email, heslo_hash))
+            c.execute(
+                "INSERT INTO uzivatele (jmeno, email, heslo) VALUES (%s, %s, %s)",
+                (jmeno, email, heslo_hash)
+            )
             conn.commit()
+        finally:
+            db_pool.putconn(conn)
 
         return redirect("/prihlaseni")
+    
     return render_template("registrace.html")
 
 
@@ -325,10 +339,13 @@ def prihlaseni():
         email = request.form["email"]
         zadane_heslo = request.form["heslo"]
 
-        with get_db_connection() as conn:
+        conn = get_db_connection()
+        try:
             c = conn.cursor()
             c.execute("SELECT id, jmeno, heslo FROM uzivatele WHERE email = %s", (email,))
             user = c.fetchone()
+        finally:
+            db_pool.putconn(conn)
 
         if user:
             ulozene_heslo = user[2]  # heslo je na 3. pozici v SELECTu
@@ -357,7 +374,8 @@ def odhlasit():
 
 @app.route("/")
 def index():
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
         c.execute("""
             SELECT t.id, t.nazev, t.sport, t.datum, u.jmeno
@@ -366,7 +384,8 @@ def index():
             ORDER BY t.datum ASC
         """)
         turnaje = c.fetchall()
-
+    finally:
+            db_pool.putconn(conn)
     return render_template("index.html", turnaje=turnaje)
 
 
@@ -381,7 +400,8 @@ def vytvorit_tym():
         popis = request.form["popis"]
         kapitan_id = session["uzivatel_id"]
 
-        with get_db_connection() as conn:
+        conn = get_db_connection()
+        try:
             c = conn.cursor()
             # Vložení týmu + získání jeho ID
             c.execute(
@@ -395,7 +415,8 @@ def vytvorit_tym():
                 "INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)",
             (tym_id, kapitan_id))
 
-        conn.commit()
+        finally:
+            db_pool.putconn(conn)
 
         return redirect(f"/tym/{tym_id}")
 
@@ -405,7 +426,8 @@ def vytvorit_tym():
 
 @app.route("/tym/<int:tym_id>")
 def detail_tymu(tym_id):
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
 
         # Detail týmu
@@ -425,7 +447,8 @@ def detail_tymu(tym_id):
             WHERE tc.tym_id = %s
         """, (tym_id,))
         clenove = c.fetchall()
-
+    finally:
+        db_pool.putconn(conn)
     return render_template("detail_tymu.html", tym=tym, clenove=clenove)
 
 
@@ -436,7 +459,8 @@ def pridat_clena(tym_id):
 
     email = request.form["email"]
 
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
 
         # Získání týmu
@@ -483,7 +507,8 @@ def pridat_clena(tym_id):
 
         # Přidej člena
         c.execute("INSERT INTO tym_clenove (tym_id, uzivatel_id) VALUES (%s, %s)", (tym_id, user_id))
-        conn.commit()
+    finally:
+        db_pool.putconn(conn)
 
     return redirect(f"/tym/{tym_id}")
 
@@ -495,7 +520,8 @@ def prihlasit_tym(turnaj_id):
 
     tym_id = request.form.get("tym_id")
 
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
 
         # Získat max. počet týmů pro daný turnaj
@@ -532,7 +558,10 @@ def prihlasit_tym(turnaj_id):
         # Zjisti max počet týmů
         c.execute("SELECT pocet_tymu FROM turnaje WHERE id = %s", (turnaj_id,))
         max_pocet = c.fetchone()[0]
-
+        
+    finally:
+        db_pool.putconn(conn)
+        
         if pocet_prihlasenych == max_pocet:
             vygeneruj_zapasy(turnaj_id)
 
