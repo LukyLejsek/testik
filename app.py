@@ -122,10 +122,6 @@ def init_db():
         """)
         
         c.execute("""
-                  ALTER TABLE turnaje ADD COLUMN format TEXT;
-        """)
-        
-        c.execute("""
                   ALTER TABLE turnaje ADD COLUMN zapasy_vygenerovany BOOLEAN DEFAULT FALSE;
 
         """)
