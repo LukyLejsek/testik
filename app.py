@@ -33,6 +33,9 @@ def main():
 
     version = cur.fetchone()[0]
     print(version)
+    
+if __name__ == "__main__":
+    main()
 
 def get_db_connection():
     result = urlparse(os.environ.get("DATABASE_URL"))
