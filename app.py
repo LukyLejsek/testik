@@ -54,7 +54,8 @@ def get_db_connection():
 # Inicializace databáze
 
 def init_db():
-    with get_db_connection() as conn:
+    conn = get_db_connection()
+    try:
         c = conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS uzivatele (
@@ -129,6 +130,8 @@ def init_db():
 
         """)
         conn.commit()
+    finally:
+            db_pool.putconn(conn)
 
 def vygeneruj_zapasy(turnaj_id):
     with get_db_connection() as conn:
