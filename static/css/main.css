@@ -1,4 +1,29 @@
+
+body {
+    background-color: #f0f2f5 !important; /* Dark blue */
+    color: rgb(0, 0, 0) !important;
+}
+
 .oranzova {
     background-color: #FFA500 !important ; /* Orange */
     color: white !important;
+}
+
+.tabulka-container {
+    background-color: #ffffff !important;
+    padding: 20px !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1); /* X, Y, rozmazání, barva */
+}
+
+table.table,
+table.table th,
+table.table td,
+table.table thead th {
+    background-color: #ffffff !important;
+    border: 1px solid orange; /* barva čar */
+}
+
+.nazev {
+    color: #FFA500 !important; /* Orange */
 }
