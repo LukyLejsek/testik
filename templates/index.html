@@ -23,7 +23,7 @@
         <div class="row">
             <div class="col-10 offset-1 tabulka-container">
                 {% if turnaje %}
-                {% if not turnaje %}
+                
 
                 <table class="table">
                     <thead>
@@ -47,6 +47,9 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                {% else %}
+                <p class="text-center">Zatím nejsou žádné turnaje.</p>
+                {% endif %}
             </div>
         </div>
     </section>
